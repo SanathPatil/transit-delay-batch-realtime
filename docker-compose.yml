@@ -90,6 +90,19 @@ services:
     environment:
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
 
+  pyspark-batch:
+    build:
+      context: ./jobs/batch
+      dockerfile: Dockerfile
+    container_name: pyspark-batch
+    depends_on:
+      - timescaledb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: transit_delays
+      POSTGRES_HOST: timescaledb
+
 #  ########################
 #  # Streamlit Dashboard  #
 #  ########################
