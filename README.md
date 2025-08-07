@@ -46,3 +46,10 @@ This project demonstrates an **end-to-end data engineering pipeline** for analyz
 
 ---
 
+## Batch Processing Implementation
+
+- Batch processing is implemented using **Apache Spark (PySpark)**.
+- The batch job downloads and extracts the latest static GTFS feed from the MTA, processes `trips.txt`, and writes the cleaned data into TimescaleDB.
+- The Spark job is containerized for easy deployment and reproducibility.
+
+---
