@@ -1,0 +1,113 @@
+networks:
+  default:
+    name: kafka-flink-network
+    external: True
+services:
+
+  #################
+  # Zookeeper     #
+  #################
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  #################
+  # Kafka Broker  #
+  #################
+  broker:
+    image: confluentinc/cp-kafka:7.2.0
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://broker:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  #################
+  # Schema Registry #
+  #################
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.2.0
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:29092"
+      SCHEMA_REGISTRY_HOST_NAME: "localhost"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+
+  #########################
+  # TimescaleDB (Postgres) #
+  #########################
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: timescaledb
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: transit_delays
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./timescaledb_data:/var/lib/postgresql/data
+
+  ###########
+  # Flink   #
+  ###########
+  flink-jobmanager:
+    image: flink:1.17.1-scala_2.12
+    container_name: flink-jobmanager
+    command: jobmanager
+    ports:
+      - "8083:8081" # Flink Web UI
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+
+  flink-taskmanager:
+    image: flink:1.17.1-scala_2.12
+    container_name: flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+
+#  ########################
+#  # Streamlit Dashboard  #
+#  ########################
+#  streamlit:
+#    build:
+#      context: ./dashboard
+#      dockerfile: Dockerfile-streamlit
+#    container_name: streamlit
+#    ports:
+#      - "8501:8501"
+#    environment:
+#      - STREAMLIT_SERVER_PORT=8501
+#      - STREAMLIT_SERVER_HEADLESS=true
+#      - POSTGRES_USER=${POSTGRES_USER}
+#      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+#      - POSTGRES_DB=transit_delays
+#      - POSTGRES_HOST=timescaledb
+#    depends_on:
+#      - timescaledb
+#    networks:
+#      - kafka-flink-network
