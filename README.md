@@ -53,3 +53,100 @@ This project demonstrates an **end-to-end data engineering pipeline** for analyz
 - The Spark job is containerized for easy deployment and reproducibility.
 
 ---
+## Data Model Architecture
+
+This project uses a **Snowflake schema** to model transit delay data, combining static GTFS data (batch) with real-time streaming events for comprehensive delay analytics.
+
+---
+
+### 1. Batch (Static) Data Schema
+
+The batch data schema models the core static GTFS information loaded periodically (e.g., trips, stops, routes, calendar) into dimension tables, with delays stored as facts.
+
+```plaintext
+  +-----------------+      +-----------------+       +-----------------+       +-----------------+
+|    DimRoutes    |      |    DimTrips     |       |    DimStops     |       |   DimCalendar   |
+|-----------------|      |-----------------|       |-----------------|       |-----------------|
+| route_id (PK)   |<-----| trip_id (PK)    |       | stop_id (PK)    |       | service_id (PK) |
+| route_short_name|      | route_id (FK)   |       | stop_name       |       | monday          |
+| route_long_name |      | direction_id    |       | stop_lat        |       | tuesday         |
+| route_type      |      | trip_headsign   |       | stop_lon        |       | ...             |
++-----------------+      +-----------------+       +-----------------+       | start_date      |
+                                                                              | end_date        |
+                                                                              +-----------------+
+
+```
+
+
+---
+
+### 2. Streaming Schema:
+```
+                                  +-----------------+
+                                  |    DimRoutes    |
+                                  +-----------------+
+                                          ^
+                                          |
+                                  +-----------------+
+                                  |    DimTrips     |
+                                  +-----------------+
+                                          ^
+                                          |
+                                  +-----------------+         +-----------------+
+                                  |   DimCalendar   |<--------| StreamingEvents |
+                                  +-----------------+         |-----------------|
+                                                             | event_id (PK)   |
+                                                             | trip_id (FK)    |
+                                                             | stop_id (FK)    |
+                                                             | event_time      |
+                                                             | actual_arrival  |
+                                                             | delay_seconds   |
+                                                             | delay_status    |
+                                                             +-----------------+
+                                          ^                           |
+                                          |                           v
+                  +-----------------+    +-----------------+     +--------------+
+                  |    DimStops     |    |   FactDelays    |<----| EnrichedStream|
+                  +-----------------+    +-----------------+     +--------------+
+```
+
+## Data Pipeline: Batch vs Streaming
+
+### Batch Pipeline
+
+The batch pipeline loads **only dimension tables** that represent the static GTFS schedule data:
+
+- `DimRoutes`
+- `DimTrips`
+- `DimStops`
+- `DimCalendar`
+
+These tables provide the foundational static reference data required for enriching real-time events.
+
+---
+
+### Streaming Pipeline
+
+The streaming pipeline ingests live transit events (`StreamingEvents`) and enriches them by joining with the static dimension tables:
+
+- `DimTrips`
+- `DimCalendar`
+- `DimRoutes`
+- `DimStops`
+
+This enrichment allows the pipeline to:
+
+- **Validate service days** using `DimCalendar`
+- **Add contextual information** about routes and stops
+- **Calculate delay metrics** (e.g., difference between scheduled and actual arrival times)
+
+Optionally, the enriched streaming events are stored temporarily in an intermediate table called `EnrichedStream`.
+
+---
+
+### Fact Table: FactDelays
+
+The `FactDelays` table stores the **computed delay events** derived from streaming data and serves as the main fact table for delay analysis.
+
+This architecture cleanly separates static schedule data (batch) from real-time delay information (streaming), enabling comprehensive and scalable transit delay analytics.
+
