@@ -25,7 +25,6 @@ GTFS_URL = os.getenv("GTFS_URL", "http://web.mta.info/developers/data/nyct/subwa
 GTFS_DIR = "gtfs_static"
 ZIP_PATH = os.path.join(GTFS_DIR, "gtfs_feed.zip")
 
-
 # ----------------------
 # Download + Extract GTFS
 # ----------------------
@@ -47,6 +46,30 @@ def download_and_extract_gtfs():
     os.remove(ZIP_PATH)
     logger.info("GTFS feed extracted successfully")
 
+# ----------------------
+# Write DataFrame to DB
+# ----------------------
+def write_to_db(df, table_name):
+    logger.info(f"Writing data to TimescaleDB table: {table_name}")
+    df.write \
+        .format("jdbc") \
+        .option("url", f"jdbc:postgresql://{POSTGRES_HOST}:5432/{POSTGRES_DB}") \
+        .option("dbtable", table_name) \
+        .option("user", POSTGRES_USER) \
+        .option("password", POSTGRES_PASSWORD) \
+        .option("driver", "org.postgresql.Driver") \
+        .mode("overwrite") \
+        .save()
+
+# ----------------------
+# Load GTFS file as DataFrame
+# ----------------------
+def load_gtfs_file(spark, filename):
+    path = os.path.join(GTFS_DIR, filename)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{filename} not found after extraction")
+    logger.info(f"Reading GTFS file: {filename}")
+    return spark.read.csv(path, header=True, inferSchema=True)
 
 # ----------------------
 # Spark Batch Job
@@ -56,26 +79,26 @@ def run_spark_batch_job():
         .appName("GTFSBatchLoader") \
         .getOrCreate()
 
-    trips_path = os.path.join(GTFS_DIR, "trips.txt")
-    if not os.path.exists(trips_path):
-        raise FileNotFoundError(f"{trips_path} not found after extraction")
+    # Load and write each dimension table
+    routes_df = load_gtfs_file(spark, "routes.txt")
+    write_to_db(routes_df, "dim_routes")
 
-    logger.info(f"Reading GTFS file: {trips_path}")
-    trips_df = spark.read.csv(trips_path, header=True, inferSchema=True)
+    trips_df = load_gtfs_file(spark, "trips.txt")
+    write_to_db(trips_df, "dim_trips")
 
-    logger.info("Writing data to TimescaleDB table: trips")
-    trips_df.write \
-        .format("jdbc") \
-        .option("url", f"jdbc:postgresql://{POSTGRES_HOST}:5432/{POSTGRES_DB}") \
-        .option("dbtable", "trips") \
-        .option("user", POSTGRES_USER) \
-        .option("password", POSTGRES_PASSWORD) \
-        .option("driver", "org.postgresql.Driver") \
-        .mode("overwrite") \
-        .save()
+    stops_df = load_gtfs_file(spark, "stops.txt")
+    write_to_db(stops_df, "dim_stops")
+
+    calendar_df = load_gtfs_file(spark, "calendar.txt")
+    write_to_db(calendar_df, "dim_calendar")
+
+    # calendar_dates is optional and can override calendar.txt service exceptions
+    # calendar_dates_path = os.path.join(GTFS_DIR, "calendar_dates.txt")
+    # if os.path.exists(calendar_dates_path):
+    #     calendar_dates_df = load_gtfs_file(spark, "calendar_dates.txt")
+    #     write_to_db(calendar_dates_df, "dim_calendar_dates")
 
     logger.info("Batch job completed successfully")
-
 
 # ----------------------
 # Main
