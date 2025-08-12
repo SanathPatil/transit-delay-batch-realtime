@@ -102,6 +102,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: transit_delays
       POSTGRES_HOST: timescaledb
+    volumes:
+      - ./jobs/batch/schemas:/app/schemas
 
 #  ########################
 #  # Streamlit Dashboard  #
