@@ -2,7 +2,12 @@ import os
 import zipfile
 import requests
 import logging
+import json
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType
+
+# Import data quality functions
+from data_quality import check_nulls, check_unique, log_row_count, check_referential_integrity
 
 # ----------------------
 # Logging Setup
@@ -24,6 +29,36 @@ GTFS_URL = os.getenv("GTFS_URL", "http://web.mta.info/developers/data/nyct/subwa
 
 GTFS_DIR = "gtfs_static"
 ZIP_PATH = os.path.join(GTFS_DIR, "gtfs_feed.zip")
+
+# ----------------------
+# Required fields per schema for validation
+# ----------------------
+required_fields_map = {
+    "routes": {"route_id"},
+    "trips": {"route_id", "service_id", "trip_id", "direction_id", "shape_id"},
+    "stops": {"stop_id", "stop_name", "stop_lat", "stop_lon"},
+    "calendar": {"service_id", "start_date", "end_date"}
+}
+
+# Primary key map
+primary_keys = {
+    "routes": ["route_id"],
+    "trips": ["trip_id", "service_id"],
+    "stops": ["stop_id"],
+    "calendar": ["service_id"]
+}
+
+# ----------------------
+# Load schema from JSON
+# ----------------------
+def load_schema(name):
+    schema_path = os.path.join(os.path.dirname(__file__), "schemas", f"{name}_schema.json")
+    if not os.path.exists(schema_path):
+        raise FileNotFoundError(f"Schema file not found: {schema_path}")
+
+    with open(schema_path, "r") as f:
+        schema_dict = json.load(f)
+    return StructType.fromJson(schema_dict)
 
 # ----------------------
 # Download + Extract GTFS
@@ -62,14 +97,37 @@ def write_to_db(df, table_name):
         .save()
 
 # ----------------------
-# Load GTFS file as DataFrame
+# Load GTFS file with schema
 # ----------------------
-def load_gtfs_file(spark, filename):
+def load_gtfs_file(spark, filename, schema):
     path = os.path.join(GTFS_DIR, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"{filename} not found after extraction")
-    logger.info(f"Reading GTFS file: {filename}")
-    return spark.read.csv(path, header=True, inferSchema=True)
+    logger.info(f"Reading GTFS file with schema: {filename}")
+    return spark.read.csv(path, header=True, schema=schema)
+
+# ----------------------
+# Validate DataFrame columns & types
+# ----------------------
+def validate_dataframe_schema(df, expected_schema, required_fields):
+    df_fields = set(df.schema.fieldNames())
+    expected_fields = set(field.name for field in expected_schema.fields)
+
+    missing = required_fields - df_fields
+    if missing:
+        raise ValueError(f"Missing required columns in CSV: {missing}")
+
+    extra = df_fields - expected_fields
+    if extra:
+        logger.warning(f"Extra columns found in CSV: {extra}")
+
+    for expected_field in expected_schema.fields:
+        col_name = expected_field.name
+        expected_type = expected_field.dataType
+        if col_name in df_fields:
+            actual_type = df.schema[col_name].dataType
+            if actual_type != expected_type:
+                raise TypeError(f"Type mismatch for column '{col_name}': expected {expected_type}, found {actual_type}")
 
 # ----------------------
 # Spark Batch Job
@@ -79,24 +137,33 @@ def run_spark_batch_job():
         .appName("GTFSBatchLoader") \
         .getOrCreate()
 
-    # Load and write each dimension table
-    routes_df = load_gtfs_file(spark, "routes.txt")
-    write_to_db(routes_df, "dim_routes")
+    spark.sparkContext.setLogLevel("WARN")
 
-    trips_df = load_gtfs_file(spark, "trips.txt")
-    write_to_db(trips_df, "dim_trips")
+    # Dictionary to hold all loaded DataFrames
+    dataframes = {}
 
-    stops_df = load_gtfs_file(spark, "stops.txt")
-    write_to_db(stops_df, "dim_stops")
+    for table_name in ["routes", "trips", "stops", "calendar"]:
+        schema = load_schema(table_name)
+        required_fields = required_fields_map.get(table_name, set())
+        pk_fields = primary_keys.get(table_name, [])
 
-    calendar_df = load_gtfs_file(spark, "calendar.txt")
-    write_to_db(calendar_df, "dim_calendar")
+        filename = f"{table_name}.txt"
+        df = load_gtfs_file(spark, filename, schema)
 
-    # calendar_dates is optional and can override calendar.txt service exceptions
-    # calendar_dates_path = os.path.join(GTFS_DIR, "calendar_dates.txt")
-    # if os.path.exists(calendar_dates_path):
-    #     calendar_dates_df = load_gtfs_file(spark, "calendar_dates.txt")
-    #     write_to_db(calendar_dates_df, "dim_calendar_dates")
+        logger.info(f"Validating schema for {filename}")
+        validate_dataframe_schema(df, schema, required_fields)
+
+        logger.info(f"Running data quality checks for {filename}")
+        check_nulls(df, table_name)
+        check_unique(df, pk_fields, table_name)
+        log_row_count(df, table_name)
+        # Store for referential integrity checks
+        dataframes[table_name] = df
+
+        db_table = f"dim_{table_name}"
+        write_to_db(df, db_table)
+    # Referential Integrity Check AFTER loading all tables
+    check_referential_integrity(dataframes)
 
     logger.info("Batch job completed successfully")
 
@@ -108,4 +175,5 @@ if __name__ == "__main__":
         download_and_extract_gtfs()
         run_spark_batch_job()
     except Exception as e:
-        logger.exception("Error during batch job execution")
+        logger.exception(f"FAILED due to {e}")
+        exit(1)

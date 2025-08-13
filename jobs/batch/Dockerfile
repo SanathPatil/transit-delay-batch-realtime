@@ -14,7 +14,9 @@ RUN wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar -P /opt/bitn
 
 # Copy batch job script only (no gtfs_static copy)
 COPY gtfs_batch_job.py /app/gtfs_batch_job.py
-
+COPY generate_schema.py /app/generate_schema.py
+COPY data_quality.py /app/data_quality.py
+COPY schemas/ /app/schemas/
 WORKDIR /app
 
 # Run the PySpark batch job using spark-submit

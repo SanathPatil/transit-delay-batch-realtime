@@ -6,6 +6,9 @@ import json
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType
 
+# Import data quality functions
+from data_quality import check_nulls, check_unique, log_row_count
+
 # ----------------------
 # Logging Setup
 # ----------------------
@@ -35,6 +38,14 @@ required_fields_map = {
     "trips": {"route_id", "service_id", "trip_id", "direction_id", "shape_id"},
     "stops": {"stop_id", "stop_name", "stop_lat", "stop_lon"},
     "calendar": {"service_id", "start_date", "end_date"}
+}
+
+# Primary key map
+primary_keys = {
+    "routes": ["route_id"],
+    "trips": ["trip_id"],
+    "stops": ["stop_id"],
+    "calendar": ["service_id"]
 }
 
 # ----------------------
@@ -110,7 +121,6 @@ def validate_dataframe_schema(df, expected_schema, required_fields):
     if extra:
         logger.warning(f"Extra columns found in CSV: {extra}")
 
-    # Validate data types for present columns
     for expected_field in expected_schema.fields:
         col_name = expected_field.name
         expected_type = expected_field.dataType
@@ -130,12 +140,18 @@ def run_spark_batch_job():
     for table_name in ["routes", "trips", "stops", "calendar"]:
         schema = load_schema(table_name)
         required_fields = required_fields_map.get(table_name, set())
+        pk_fields = primary_keys.get(table_name, [])
 
         filename = f"{table_name}.txt"
         df = load_gtfs_file(spark, filename, schema)
 
         logger.info(f"Validating schema for {filename}")
         validate_dataframe_schema(df, schema, required_fields)
+
+        logger.info(f"Running data quality checks for {filename}")
+        check_nulls(df, required_fields, table_name)
+        check_unique(df, pk_fields, table_name)
+        log_row_count(df, table_name)
 
         db_table = f"dim_{table_name}"
         write_to_db(df, db_table)
@@ -150,5 +166,5 @@ if __name__ == "__main__":
         download_and_extract_gtfs()
         run_spark_batch_job()
     except Exception as e:
-        logger.exception(f" FAILED due to {e}")
+        logger.exception(f"FAILED due to {e}")
         exit(1)

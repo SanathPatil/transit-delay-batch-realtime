@@ -7,24 +7,24 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 # ----------------------
 
 routes_schema = StructType([
-    StructField("route_id", StringType(), True),
+    StructField("route_id", StringType(), False),
     StructField("agency_id", StringType(), True),
     StructField("route_short_name", StringType(), True),
     StructField("route_long_name", StringType(), True),
     StructField("route_desc", StringType(), True),
-    StructField("route_type", IntegerType(), True),
+    StructField("route_type", IntegerType(), False),
     StructField("route_url", StringType(), True),
     StructField("route_color", StringType(), True),
     StructField("route_text_color", StringType(), True)
 ])
 
 trips_schema = StructType([
-    StructField("route_id", StringType(), True),
-    StructField("service_id", StringType(), True),
-    StructField("trip_id", StringType(), True),
+    StructField("route_id", StringType(), False),
+    StructField("service_id", StringType(), False),
+    StructField("trip_id", StringType(), False),
     StructField("trip_headsign", StringType(), True),
     StructField("trip_short_name", StringType(), True),
-    StructField("direction_id", IntegerType(), True),
+    StructField("direction_id", IntegerType(), False),
     StructField("block_id", StringType(), True),
     StructField("shape_id", StringType(), True),
     StructField("wheelchair_accessible", IntegerType(), True),
@@ -32,12 +32,12 @@ trips_schema = StructType([
 ])
 
 stops_schema = StructType([
-    StructField("stop_id", StringType(), True),
+    StructField("stop_id", StringType(), False),
     StructField("stop_code", StringType(), True),
-    StructField("stop_name", StringType(), True),
+    StructField("stop_name", StringType(), False),
     StructField("stop_desc", StringType(), True),
-    StructField("stop_lat", DoubleType(), True),
-    StructField("stop_lon", DoubleType(), True),
+    StructField("stop_lat", DoubleType(), False),
+    StructField("stop_lon", DoubleType(), False),
     StructField("zone_id", StringType(), True),
     StructField("stop_url", StringType(), True),
     StructField("location_type", IntegerType(), True),
@@ -47,7 +47,7 @@ stops_schema = StructType([
 ])
 
 calendar_schema = StructType([
-    StructField("service_id", StringType(), True),
+    StructField("service_id", StringType(), False),
     StructField("monday", IntegerType(), True),
     StructField("tuesday", IntegerType(), True),
     StructField("wednesday", IntegerType(), True),
@@ -55,8 +55,8 @@ calendar_schema = StructType([
     StructField("friday", IntegerType(), True),
     StructField("saturday", IntegerType(), True),
     StructField("sunday", IntegerType(), True),
-    StructField("start_date", StringType(), True),
-    StructField("end_date", StringType(), True)
+    StructField("start_date", StringType(), False),
+    StructField("end_date", StringType(), False)
 ])
 
 # ----------------------
