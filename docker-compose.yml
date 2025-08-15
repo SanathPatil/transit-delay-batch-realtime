@@ -103,7 +103,82 @@ services:
       POSTGRES_DB: transit_delays
       POSTGRES_HOST: timescaledb
     volumes:
-      - ./jobs/batch/schemas:/app/schemas
+      - ./jobs/batch:/app
+#      - ./jobs/batch/schemas:/app/schemas
+    command: tail -f /dev/null
+
+  ################
+  # Airflow Setup
+  ################
+
+  airflow-init:
+    image: apache/airflow:2.9.1-python3.10
+    container_name: airflow-init
+    entrypoint: /bin/bash -c "/bin/bash -c \"$${@}\""
+    command: >
+      /bin/bash -c "
+        airflow db init &&
+        airflow db upgrade &&
+        airflow users create -r Admin -u admin -e airflow@airflow.com -f admin -l user -p airflow
+      "
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////usr/local/airflow/db/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/db:/usr/local/airflow/db
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1-python3.10
+    container_name: airflow-webserver
+    command: webserver
+    depends_on:
+      - airflow-init
+      - timescaledb
+      - pyspark-batch
+    ports:
+      - "8082:8080"
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////usr/local/airflow/db/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/db:/usr/local/airflow/db
+      - /var/run/docker.sock:/var/run/docker.sock
+
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.1-python3.10
+    container_name: airflow-scheduler
+    command: scheduler
+    depends_on:
+      - airflow-init
+    restart: always
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: sqlite:////usr/local/airflow/db/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/db:/usr/local/airflow/db
+      - /var/run/docker.sock:/var/run/docker.sock
+
 
 #  ########################
 #  # Streamlit Dashboard  #
