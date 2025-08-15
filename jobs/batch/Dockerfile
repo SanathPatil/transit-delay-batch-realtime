@@ -20,4 +20,5 @@ COPY schemas/ /app/schemas/
 WORKDIR /app
 
 # Run the PySpark batch job using spark-submit
-CMD ["spark-submit", "gtfs_batch_job.py"]
+CMD ["tail", "-f", "/dev/null"]
+#CMD ["spark-submit", "gtfs_batch_job.py"]
