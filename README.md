@@ -64,16 +64,18 @@ This project uses a **Snowflake schema** to model transit delay data, combining 
 The batch data schema models the core static GTFS information loaded periodically (e.g., trips, stops, routes, calendar) into dimension tables, with delays stored as facts.
 
 ```plaintext
-  +-----------------+      +-----------------+       +-----------------+       +-----------------+
-|    DimRoutes    |      |    DimTrips     |       |    DimStops     |       |   DimCalendar   |
-|-----------------|      |-----------------|       |-----------------|       |-----------------|
-| route_id (PK)   |<-----| trip_id (PK)    |       | stop_id (PK)    |       | service_id (PK) |
-| route_short_name|      | route_id (FK)   |       | stop_name       |       | monday          |
-| route_long_name |      | direction_id    |       | stop_lat        |       | tuesday         |
-| route_type      |      | trip_headsign   |       | stop_lon        |       | ...             |
-+-----------------+      +-----------------+       +-----------------+       | start_date      |
-                                                                              | end_date        |
-                                                                              +-----------------+
++-----------------+      +-----------------+       +-----------------+       +-----------------+        +----------------------+
+|   DimRoutes     |      |   DimTrips      |       |   DimStops      |       |  DimCalendar     |       |   DimStopTimes       |
+|-----------------|      |-----------------|       |-----------------|       |------------------|       |----------------------|
+| route_id (PK)   |<-----| trip_id (PK)    |       | stop_id (PK)    |       | service_id (PK)  |       | trip_id (FK)         |
+| agency_id       |      | route_id (FK)   |       | stop_name       |       | start_date       |       | stop_id (FK)         |
+| route_long_name |      | service_id      |       | stop_lat        |       | end_date         |       | arrival_time         |
+| route_type      |      | trip_headsign   |       | stop_lon        |       | days_of_week     |       | departure_time       |
++-----------------+      | direction_id    |       +-----------------+       +------------------+       | stop_sequence        |
+                         | block_id        |                                                            +----------------------+
+                         | shape_id        |
+                         +-----------------+
+
 
 ```
 
@@ -120,6 +122,7 @@ The batch pipeline loads **only dimension tables** that represent the static GTF
 - `DimTrips`
 - `DimStops`
 - `DimCalendar`
+- `DimStopTimes`
 
 These tables provide the foundational static reference data required for enriching real-time events.
 
@@ -150,3 +153,72 @@ The `FactDelays` table stores the **computed delay events** derived from streami
 
 This architecture cleanly separates static schedule data (batch) from real-time delay information (streaming), enabling comprehensive and scalable transit delay analytics.
 
+
+
+# TO DO:
+🚀 Real-Time Streaming with Kafka + Flink — Step-by-Step
+
+Create Kafka Topics
+
+docker exec -it broker kafka-topics \
+  --create --topic vehicle_positions \
+  --bootstrap-server broker:9092 --partitions 1 --replication-factor 1
+# Repeat for trip_updates and alerts
+
+
+Build and Run GTFS-RT Kafka Producer
+
+Use gtfs-realtime-bindings to fetch GTFS-RT protobuf feeds.
+
+Parse and publish to Kafka (vehicle_positions, etc.) every 10–30s.
+
+Example (Python pseudocode):
+
+from gtfs_realtime_bindings import FeedMessage
+from confluent_kafka import Producer
+import requests
+
+r = requests.get("https://.../vehicle_positions.pb")
+feed = FeedMessage()
+feed.ParseFromString(r.content)
+producer = Producer({'bootstrap.servers': 'broker:9092'})
+for entity in feed.entity:
+    producer.produce('vehicle_positions', entity.SerializeToString())
+
+
+Create Flink Job to Process Kafka Stream
+
+Use Flink Kafka connectors to consume topics.
+
+Parse protobuf messages.
+
+Enrich with static batch tables (e.g. routes/trips).
+
+Sink output to TimescaleDB, Redis, or Elasticsearch.
+
+Run Flink Job
+
+Deploy using Flink UI (localhost:8083) or CLI:
+
+./bin/flink run -c com.example.StreamProcessor path/to/jar
+
+
+Join with Batch Data
+
+Broadcast static dimensions from batch output (e.g., dim_routes, dim_trips) into Flink.
+
+Perform real-time joins for enriched output.
+
+Monitor & Sink Results
+
+Store enriched stream in TimescaleDB (realtime_delays).
+
+Monitor Flink job via Flink UI.
+
+Optionally expose Kafka/Flink metrics to Grafana.
+
+Optional: Schedule Producer via Airflow
+
+Add DAG to run GTFS-RT producer on interval.
+
+Monitor job execution from Airflow UI.
