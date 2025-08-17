@@ -21,4 +21,4 @@ WORKDIR /app
 
 # Run the PySpark batch job using spark-submit
 CMD ["tail", "-f", "/dev/null"]
-#CMD ["spark-submit", "gtfs_batch_job.py"]
+#CMD ["spark-submit", "gtfs_batch_job_dev.py"]
