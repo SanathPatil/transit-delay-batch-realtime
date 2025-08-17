@@ -25,7 +25,8 @@ POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
-GTFS_URL = os.getenv("GTFS_URL", "http://web.mta.info/developers/data/nyct/subway/google_transit.zip")
+GTFS_URL = os.getenv("GTFS_URL", "https://cdn.mbta.com/MBTA_GTFS.zip")
+# GTFS_URL = os.getenv("GTFS_URL", "http://web.mta.info/developers/data/nyct/subway/google_transit.zip")
 
 GTFS_DIR = "gtfs_static"
 ZIP_PATH = os.path.join(GTFS_DIR, "gtfs_feed.zip")
@@ -37,7 +38,8 @@ required_fields_map = {
     "routes": {"route_id"},
     "trips": {"route_id", "service_id", "trip_id", "direction_id", "shape_id"},
     "stops": {"stop_id", "stop_name", "stop_lat", "stop_lon"},
-    "calendar": {"service_id", "start_date", "end_date"}
+    "calendar": {"service_id", "start_date", "end_date"},
+    "stop_times": {"trip_id", "stop_id", "stop_sequence"}
 }
 
 # Primary key map
@@ -45,7 +47,8 @@ primary_keys = {
     "routes": ["route_id"],
     "trips": ["trip_id", "service_id"],
     "stops": ["stop_id"],
-    "calendar": ["service_id"]
+    "calendar": ["service_id"],
+    "stop_times": ["trip_id", "stop_sequence"]
 }
 
 # ----------------------
@@ -142,7 +145,7 @@ def run_spark_batch_job():
     # Dictionary to hold all loaded DataFrames
     dataframes = {}
 
-    for table_name in ["routes", "trips", "stops", "calendar"]:
+    for table_name in ["routes", "trips", "stops", "calendar", "stop_times"]:
         schema = load_schema(table_name)
         required_fields = required_fields_map.get(table_name, set())
         pk_fields = primary_keys.get(table_name, [])
