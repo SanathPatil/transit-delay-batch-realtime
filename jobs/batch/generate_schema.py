@@ -59,6 +59,19 @@ calendar_schema = StructType([
     StructField("end_date", StringType(), False)
 ])
 
+stop_times_schema = StructType([
+    StructField("trip_id", StringType(), False),
+    StructField("arrival_time", StringType(), True),  # HH:MM:SS format
+    StructField("departure_time", StringType(), True), # HH:MM:SS format
+    StructField("stop_id", StringType(), False),
+    StructField("stop_sequence", IntegerType(), False),
+    StructField("stop_headsign", StringType(), True),
+    StructField("pickup_type", IntegerType(), True),
+    StructField("drop_off_type", IntegerType(), True),
+    StructField("shape_dist_traveled", StringType(), True),
+    StructField("timepoint", IntegerType(), True)
+])
+
 # ----------------------
 # Write schemas to files
 # ----------------------
@@ -67,7 +80,9 @@ schemas = {
     "routes": routes_schema,
     "trips": trips_schema,
     "stops": stops_schema,
-    "calendar": calendar_schema
+    "calendar": calendar_schema,
+    "stop_times": stop_times_schema
+
 }
 
 output_dir = "./schemas"
