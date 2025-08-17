@@ -3,7 +3,7 @@
     {
       "metadata": {},
       "name": "route_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
@@ -33,7 +33,7 @@
     {
       "metadata": {},
       "name": "route_type",
-      "nullable": true,
+      "nullable": false,
       "type": "integer"
     },
     {

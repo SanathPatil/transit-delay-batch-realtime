@@ -3,19 +3,19 @@
     {
       "metadata": {},
       "name": "route_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
       "metadata": {},
       "name": "service_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
       "metadata": {},
       "name": "trip_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
@@ -33,7 +33,7 @@
     {
       "metadata": {},
       "name": "direction_id",
-      "nullable": true,
+      "nullable": false,
       "type": "integer"
     },
     {

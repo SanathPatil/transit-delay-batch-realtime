@@ -3,7 +3,7 @@
     {
       "metadata": {},
       "name": "service_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
@@ -51,13 +51,13 @@
     {
       "metadata": {},
       "name": "start_date",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
       "metadata": {},
       "name": "end_date",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     }
   ],

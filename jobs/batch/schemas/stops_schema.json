@@ -3,7 +3,7 @@
     {
       "metadata": {},
       "name": "stop_id",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
@@ -15,7 +15,7 @@
     {
       "metadata": {},
       "name": "stop_name",
-      "nullable": true,
+      "nullable": false,
       "type": "string"
     },
     {
@@ -27,13 +27,13 @@
     {
       "metadata": {},
       "name": "stop_lat",
-      "nullable": true,
+      "nullable": false,
       "type": "double"
     },
     {
       "metadata": {},
       "name": "stop_lon",
-      "nullable": true,
+      "nullable": false,
       "type": "double"
     },
     {
