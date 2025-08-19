@@ -179,6 +179,20 @@ services:
       - ./airflow/db:/usr/local/airflow/db
       - /var/run/docker.sock:/var/run/docker.sock
 
+  ################
+  # Kafka Producer Setup
+  ################
+  kafka-producer:
+    build:
+      context: ./jobs/streaming/producers
+      dockerfile: Dockerfile
+    container_name: kafka-producer
+    depends_on:
+      - broker
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=broker:29092
+      - PRODUCER_INTERVAL_SECONDS=30
+
 
 #  ########################
 #  # Streamlit Dashboard  #
