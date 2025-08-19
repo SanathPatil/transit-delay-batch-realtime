@@ -158,67 +158,117 @@ This architecture cleanly separates static schedule data (batch) from real-time 
 # TO DO:
 🚀 Real-Time Streaming with Kafka + Flink — Step-by-Step
 
-Create Kafka Topics
+1. Set Up Kafka Topics
 
-docker exec -it broker kafka-topics \
-  --create --topic vehicle_positions \
-  --bootstrap-server broker:9092 --partitions 1 --replication-factor 1
-# Repeat for trip_updates and alerts
+Create Kafka topics for each MBTA Protobuf feed you want to consume, e.g.:
+
+vehicle_positions
+
+trip_updates
+
+alerts (optional)
+
+docker exec -it broker kafka-topics --create --topic vehicle_positions --bootstrap-server broker:29092 --partitions 1 --replication-factor 1
+docker exec -it broker kafka-topics --create --topic trip_updates --bootstrap-server broker:29092 --partitions 1 --replication-factor 1
+Verify:
+docker exec -it broker kafka-topics --list --bootstrap-server broker:29092
+__consumer_offsets
+_schemas
+trip_updates
+vehicle_positions
+# Repeat for other topics as needed
+
+2. Build Kafka Producer for MBTA API
+
+Write a producer service (Python, Scala, or Java) that:
+
+Polls MBTA’s Protobuf HTTP feeds (e.g., vehicle_positions.pb) every 10-30 seconds.
+
+Parses raw Protobuf messages using MBTA’s .proto definitions.
+
+Publishes serialized Protobuf messages to the respective Kafka topics.
+
+Containerize this producer and add it to your Docker Compose for easy orchestration.
+
+3. Set Up Flink Environment
+
+Make sure your Flink cluster is running (JobManager + TaskManager).
+
+Add required dependencies in your Scala Flink project for:
+
+Kafka connector (flink-connector-kafka)
+
+Protobuf libraries (protobuf-java)
+
+TimescaleDB JDBC driver (for sinks)
+
+4. Implement Flink Consumer in Scala
+
+In your Flink Scala job:
+
+Use the Kafka consumer connector to consume messages from Kafka topics.
+
+Implement a custom DeserializationSchema to parse Protobuf messages into Scala/Java case classes or generated Protobuf classes.
+
+class ProtobufDeserializationSchema extends DeserializationSchema[YourProtoClass] {
+  override def deserialize(message: Array[Byte]): YourProtoClass = {
+    YourProtoClass.parseFrom(message)
+  }
+  override def isEndOfStream(nextElement: YourProtoClass): Boolean = false
+  override def getProducedType: TypeInformation[YourProtoClass] = createTypeInformation[YourProtoClass]
+}
+
+5. Enrich Streaming Data
+
+Join the streaming events with your static batch data (loaded from TimescaleDB) using Flink’s broadcast state pattern.
+
+Broadcast static datasets (e.g., DimTrips, DimRoutes) to all Flink workers.
+
+Perform real-time enrichment to calculate delay metrics and validate service days.
+
+6. Write Results to Sink
+
+After enrichment and calculation, write your results to:
+
+TimescaleDB for persistent storage.
+
+Or optionally, to Kafka (for downstream consumers or dashboards).
+
+Use Flink JDBC sink connector or custom sink implementations.
+
+7. Deploy and Monitor
+
+Build your Flink Scala job JAR.
+
+Submit it to your Flink cluster:
+
+./bin/flink run -c your.main.Class /path/to/your-flink-job.jar
 
 
-Build and Run GTFS-RT Kafka Producer
+Monitor the job through Flink Web UI (localhost:8083).
 
-Use gtfs-realtime-bindings to fetch GTFS-RT protobuf feeds.
+8. (Optional) Visualize
 
-Parse and publish to Kafka (vehicle_positions, etc.) every 10–30s.
+Connect your visualization tool (Streamlit, Grafana, etc.) to TimescaleDB.
 
-Example (Python pseudocode):
+Build live dashboards with maps, delay stats, and vehicle tracking.
 
-from gtfs_realtime_bindings import FeedMessage
-from confluent_kafka import Producer
-import requests
+Summary Checklist:
 
-r = requests.get("https://.../vehicle_positions.pb")
-feed = FeedMessage()
-feed.ParseFromString(r.content)
-producer = Producer({'bootstrap.servers': 'broker:9092'})
-for entity in feed.entity:
-    producer.produce('vehicle_positions', entity.SerializeToString())
+ Create Kafka topics
 
+ Build & deploy Kafka producer polling MBTA Protobuf feeds
 
-Create Flink Job to Process Kafka Stream
+ Set up Flink Scala project with Kafka & Protobuf dependencies
 
-Use Flink Kafka connectors to consume topics.
+ Implement Flink consumer with Protobuf deserialization
 
-Parse protobuf messages.
+ Load & broadcast static batch data to Flink
 
-Enrich with static batch tables (e.g. routes/trips).
+ Enrich streaming data with batch data
 
-Sink output to TimescaleDB, Redis, or Elasticsearch.
+ Write enriched results to TimescaleDB
 
-Run Flink Job
+ Deploy & monitor Flink streaming job
 
-Deploy using Flink UI (localhost:8083) or CLI:
-
-./bin/flink run -c com.example.StreamProcessor path/to/jar
-
-
-Join with Batch Data
-
-Broadcast static dimensions from batch output (e.g., dim_routes, dim_trips) into Flink.
-
-Perform real-time joins for enriched output.
-
-Monitor & Sink Results
-
-Store enriched stream in TimescaleDB (realtime_delays).
-
-Monitor Flink job via Flink UI.
-
-Optionally expose Kafka/Flink metrics to Grafana.
-
-Optional: Schedule Producer via Airflow
-
-Add DAG to run GTFS-RT producer on interval.
-
-Monitor job execution from Airflow UI.
+ Build visualization dashboards (optional)
