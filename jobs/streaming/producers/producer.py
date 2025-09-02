@@ -3,7 +3,7 @@ import os
 import requests
 from confluent_kafka import Producer
 from google.transit import gtfs_realtime_pb2
-
+import base64
 
 class GtfsRtKafkaProducer:
     def __init__(self, topic, kafka_broker):
@@ -33,7 +33,9 @@ class GtfsRtKafkaProducer:
     def publish_entities(self, entities):
         for entity in entities:
             try:
-                self.producer.produce(self.topic, value=entity.SerializeToString(), callback=self.delivery_report)
+                encoded = base64.b64encode(entity.SerializeToString()).decode("utf-8")
+                self.producer.produce(self.topic, value=encoded, callback=self.delivery_report)
+                # self.producer.produce(self.topic, value=entity.SerializeToString(), callback=self.delivery_report)
             except Exception as e:
                 print(f"[ERROR] Failed to produce message: {e}")
         self.producer.flush()
