@@ -1,0 +1,4 @@
+apache-flink==1.17.1
+protobuf==3.20.3
+confluent-kafka
+psycopg2-binary
