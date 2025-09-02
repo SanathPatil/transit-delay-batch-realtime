@@ -272,3 +272,27 @@ Summary Checklist:
  Deploy & monitor Flink streaming job
 
  Build visualization dashboards (optional)
+ 
+# TODO
+You must:
+
+📜 Include a copy of the license in your repo or distribution (usually as a LICENSE file)
+
+🙌 Give credit (attribution) — e.g., a note in your README or documentation like:
+
+This project uses the GTFS-realtime protocol buffer schema developed by Google under the Apache License 2.0.
+
+
+
+
+
+
+CREATE TABLE trip_updates (
+    vehicle_id TEXT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    PRIMARY KEY (vehicle_id, timestamp)
+);
+
+SELECT create_hypertable('trip_updates', 'timestamp');
