@@ -1,0 +1,4 @@
+pyflink
+psycopg2-binary
+kafka-python
+protobuf
