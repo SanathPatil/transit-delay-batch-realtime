@@ -1,0 +1,5 @@
+kafka-python
+psycopg2-binary
+protobuf
+python-dotenv
+requests
