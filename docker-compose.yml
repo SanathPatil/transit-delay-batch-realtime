@@ -213,6 +213,24 @@ services:
       - default
     restart: always
 
+#  ########################n
+#  # Streamlit Dashboard  #
+#  ########################
+  streamlit-app:
+    build:
+      context: ./gtfs-dashboard
+      dockerfile: Dockerfile
+    container_name: streamlit
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    networks:
+      - default
+    depends_on:
+      timescaledb:
+        condition: service_started
+
 ###################
 #  # Flink JobManager#
 #  ##################
@@ -263,25 +281,3 @@ services:
 
 #    command: ["flink", "run", "-m", "flink-jobmanager:6123", "-py", "/app/consumer.py"]
 
-
-#  ########################n
-#  # Streamlit Dashboard  #
-#  ########################
-#  streamlit:
-#    build:
-#      context: ./dashboard
-#      dockerfile: Dockerfile-streamlit
-#    container_name: streamlit
-#    ports:
-#      - "8501:8501"
-#    environment:
-#      - STREAMLIT_SERVER_PORT=8501
-#      - STREAMLIT_SERVER_HEADLESS=true
-#      - POSTGRES_USER=${POSTGRES_USER}
-#      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-#      - POSTGRES_DB=transit_delays
-#      - POSTGRES_HOST=timescaledb
-#    depends_on:
-#      - timescaledb
-#    networks:
-#      - kafka-flink-network
