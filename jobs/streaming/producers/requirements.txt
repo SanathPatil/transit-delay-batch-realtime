@@ -1,4 +1,0 @@
-gtfs-realtime-bindings
-protobuf
-requests
-confluent-kafka
