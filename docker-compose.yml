@@ -280,4 +280,3 @@ services:
 #    command: ["/bin/sh", "-c", "sleep 30 && flink run -m flink-jobmanager:6123 -py /app/consumer.py"]
 
 #    command: ["flink", "run", "-m", "flink-jobmanager:6123", "-py", "/app/consumer.py"]
-
