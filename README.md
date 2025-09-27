@@ -2,9 +2,7 @@
 
 ## Project Overview
 
-## Project Overview
-
-This project demonstrates an **end-to-end data engineering pipeline** for analyzing transit delays using **both batch and streaming data processing**. It showcases modern data engineering practices and tools for professional evaluation.
+This project demonstrates an **end-to-end data engineering pipeline** for analyzing transit delays using **both batch and streaming data processing**.
 
 **Key Features:**
 
@@ -14,6 +12,46 @@ This project demonstrates an **end-to-end data engineering pipeline** for analyz
 - Fully containerized with **Docker Compose** for reproducible environments.
 
 ---
+
+## Docker Compose Overview
+
+This project is fully containerized using **Docker Compose**, allowing seamless orchestration of batch and streaming services.
+
+### Key Services
+
+- **TimescaleDB** – Stores both GTFS static (batch) and real-time delay (streaming) data.
+- **Apache Airflow** – Orchestrates the batch ETL job that loads GTFS static data.
+- **Apache Kafka + Zookeeper** – Handles real-time ingestion of GTFS-RT trip updates.
+- **Kafka Producer** – Fetches and publishes MBTA GTFS-RT data to Kafka topic.
+- **Kafka Consumer** – Consumes real-time trip updates, joins with schedule data, and calculates delays.
+- **Streamlit Dashboard** – Visualizes per-trip delay information.
+- *(Optional)*: Includes commented-out **Flink** containers for future/experimental use.
+
+### Network Configuration
+
+Docker Compose is configured to use an **external Docker network**:
+
+```yaml
+networks:
+  default:
+    name: kafka-flink-network
+    external: true
+```
+Note:
+This project uses a .env file to configure credentials and service endpoints.
+**Important:** This file is intentionally not committed to Git (included in .gitignore) for security reasons. You must create your own .env file in the project root before running the system.
+```
+POSTGRES_USER= {}
+POSTGRES_PASSWORD= {}
+POSTGRES_DB= {}
+POSTGRES_HOST= timescaledb
+
+# Kafka connection
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+# GTFS feed URL (used by batch job)
+GTFS_URL=https://cdn.mbta.com/MBTA_GTFS.zip
+```
 
 ## Architecture
 
@@ -40,11 +78,6 @@ This project demonstrates an **end-to-end data engineering pipeline** for analyz
 
 
 ```
-- **Kafka**: Handles streaming transit data ingestion.
-- **Flink**: Joins streaming data with static schedule data in TimescaleDB to calculate delays.
-- **TimescaleDB**: Stores historical and real-time enriched transit data.
-- **pgAdmin**: GUI to explore TimescaleDB.
-
 ---
 
 ## Batch Processing Implementation
@@ -91,7 +124,6 @@ The batch data schema models the core static GTFS information loaded periodicall
                             |
                             v
              +-----------------------------+
-             | Download & Extract ZIP File |
              |      (gtfs_batch_job.py)    |
              +-----------------------------+
                             |
@@ -166,7 +198,7 @@ The batch data schema models the core static GTFS information loaded periodicall
 
 ---
 
-### Streaming Pipeline
+## Streaming Pipeline
 
 This streaming component enriches real-time trip updates (from MBTA) with GTFS static data to compute delays and persist them into a fact table: `trip_delays`.
 
@@ -226,10 +258,6 @@ Note: Handles extended GTFS times (e.g., 25:30:00) and converts properly using t
 
 ---
 
-## Streaming Pipeline
-
-This component consumes real-time trip updates from Kafka, joins with static GTFS data in TimescaleDB, calculates delays, and upserts results back into TimescaleDB.
-
 ## Streamlit Dashboard
 
 The Streamlit app provides an interactive UI to explore trip delays with route information:
@@ -246,3 +274,11 @@ The Streamlit app provides an interactive UI to explore trip delays with route i
 
 ![Streamlit App Screenshot](/images/streamlit_graph.png)
 ![Streamlit App Screenshot](/images/streamlit_table.png)
+
+### Additional Notes
+
+- Initially, I explored implementing the streaming pipeline using Apache Flink (PyFlink and Scala Flink) for Kafka producer and consumer components.  
+- Due to serialization issues related to MBTA's protobuf data and Docker container environment, I faced challenges deploying the Flink jobs reliably.  
+- Despite this, the approach demonstrates my ability to work with advanced streaming tools and troubleshoot complex data pipeline issues.  
+- Ultimately, I developed a robust Kafka consumer in Python that successfully handles streaming data processing and integrates with TimescaleDB.  
+- The Flink-related code and experiments are preserved in the `/streaming/flink` folder for reference.
