@@ -2,56 +2,69 @@
 
 ## Project Overview
 
-This project demonstrates an **end-to-end data engineering pipeline** for analyzing transit delays using **both batch and streaming data processing**.
+This project implements an end-to-end data engineering platform for analyzing public transit delays using both historical (batch) and real-time (streaming) data.
 
-**Key Features:**
+The system is designed to answer two core questions:
 
-- Real-time ingestion of transit data using **Kafka**.
-- Historical data storage and time-series analysis with **TimescaleDB**.
-- Visualization via **Streamlit dashboard**.
-- Fully containerized with **Docker Compose** for reproducible environments.
+- Historical analytics: 
+  Which routes, stops, and time windows are most prone to delays?
+
+- Real-time monitoring: 
+What delays are happening right now, and how do they evolve over time?
+
+To support these use cases, the platform combines Kafka-based streaming, batch ETL, workflow orchestration, time-series data modeling, and a visual analytics dashboard.
+
+---
+## Design Goals
+
+- Support **both batch and streaming workloads**
+- Enable **low-latency analytics** for real-time delay monitoring
+- Maintain **clean, analytics-friendly data models**
+- Be **reproducible locally** using Docker
+- Reflect **production-oriented data engineering practices**
+
+---
+## Data Sources
+
+### GTFS Static (Batch)
+- Transit schedules
+- Routes
+- Trips
+- Stops
+
+### GTFS Realtime (Streaming)
+- Vehicle positions
+- Delay updates
+---
+
+## Batch Processing
+
+Batch pipelines process **static and slowly changing data**.
+
+### Responsibilities
+- Schema normalization
+- Data validation
+- Idempotent loads
+- Historical backfills
+
+Batch jobs are orchestrated using **Apache Airflow** and executed with **PySpark**.
 
 ---
 
-## Docker Compose Overview
+## Streaming Processing
 
-This project is fully containerized using **Docker Compose**, allowing seamless orchestration of batch and streaming services.
+The streaming pipeline ingests **real-time transit events** via Kafka.
 
-### Key Services
+---
+### Responsibilities
+- Consume GTFS-RT messages
+- Join streaming data with static reference data
+- Compute delay metrics
+- Write time-series events to TimescaleDB
 
-- **TimescaleDB** – Stores both GTFS static (batch) and real-time delay (streaming) data.
-- **Apache Airflow** – Orchestrates the batch ETL job that loads GTFS static data.
-- **Apache Kafka + Zookeeper** – Handles real-time ingestion of GTFS-RT trip updates.
-- **Kafka Producer** – Fetches and publishes MBTA GTFS-RT data to Kafka topic.
-- **Kafka Consumer** – Consumes real-time trip updates, joins with schedule data, and calculates delays.
-- **Streamlit Dashboard** – Visualizes per-trip delay information.
-- *(Optional)*: Includes commented-out **Flink** containers for future/experimental use.
+This enables **near real-time analytics and monitoring**.
 
-### Network Configuration
-
-Docker Compose is configured to use an **external Docker network**:
-
-```yaml
-networks:
-  default:
-    name: kafka-flink-network
-    external: true
-```
-Note:
-This project uses a .env file to configure credentials and service endpoints.
-**Important:** This file is intentionally not committed to Git (included in .gitignore) for security reasons. You must create your own .env file in the project root before running the system.
-```
-POSTGRES_USER= {}
-POSTGRES_PASSWORD= {}
-POSTGRES_DB= {}
-POSTGRES_HOST= timescaledb
-
-# Kafka connection
-KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-
-# GTFS feed URL (used by batch job)
-GTFS_URL=https://cdn.mbta.com/MBTA_GTFS.zip
-```
+---
 
 ## Architecture
 
@@ -257,7 +270,17 @@ The consumer joins GTFS-RT data with GTFS static data (loaded by the batch job):
 Note: Handles extended GTFS times (e.g., 25:30:00) and converts properly using timezone-aware logic (America/New_York → UTC).
 
 ---
+## Testing
 
+The project includes **unit tests** focused on:
+
+- Data transformation logic
+- Delay calculations
+- Schema consistency
+
+Testing helps ensure correctness and prevents regressions as pipelines evolve.
+
+---
 ## Streamlit Dashboard
 
 The Streamlit app provides an interactive UI to explore trip delays with route information:
